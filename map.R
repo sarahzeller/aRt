@@ -51,14 +51,13 @@ elbe_raster <- elbe |>
   stars::st_rasterize() |>
   terra::rast() |> 
   terra::project(elev_data |> terra::rast())
+elbe_raster[elbe_raster == 1] <- 0
 
 elbe_buffer <- elbe |> 
-  sf::st_buffer(200) |> 
+  sf::st_buffer(400) |> 
   stars::st_rasterize() |>
   terra::rast() |> 
   terra::project(elev_data |> terra::rast())
-
-elbe_buffer[elbe_buffer == 1] <- 0
 
 park_with_river <- terra::rast(elev_data) |> 
   # merge with elbe
@@ -68,8 +67,8 @@ park_with_river <- terra::rast(elev_data) |>
   st_as_sf(coords = c("x", "y"), crs = st_crs(elbe)) |>
   rename_with(\(x) ifelse(x != "geometry", "value", x)) |> 
   # classify: elbe 0, otherwise rank
-  mutate(value = case_when(value == 0 ~ -1,
-                           value == 1 ~ 0, 
+  mutate(value = case_when(value == 0 ~ 0,
+                           value == 1 ~ -1, 
                            .default = ntile(value, 3))) |> 
   # add letter
   left_join(chars_map, by = "value")
