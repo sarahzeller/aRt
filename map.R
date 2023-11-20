@@ -7,8 +7,8 @@ font_add_google("Special Elite", "elite")
 showtext_auto()
 
 # decide on letter per elevation rank
-chars_map <- data.frame(value_letter = c("I", "H", "M"),
-                        value = 1:3)
+chars_map <- data.frame(value_letter = c("", "\u2022", "I", "H", "M"),
+                        value = -1:3)
 
 # load data
 # national park
@@ -46,33 +46,38 @@ elev_data <- elevatr::get_elev_raster(locations = national_park,
                                       z = 8,
                                       clip = "locations")
 # tidy up
-elev_df <- elev_data |>
-  terra::rast() |>
-  as.data.frame(xy = TRUE) |>
-  st_as_sf(coords = c("x", "y"), crs = 4326) |>
-  rename_with(\(x) ifelse(x != "geometry", "value", x)) |>
-  # classify
-  mutate(value = ntile(value, 3)) |>
+elbe_raster <- elbe |> 
+  sf::st_buffer(100) |> 
+  stars::st_rasterize() |>
+  terra::rast() |> 
+  terra::project(elev_data |> terra::rast())
+
+elbe_buffer <- elbe |> 
+  sf::st_buffer(200) |> 
+  stars::st_rasterize() |>
+  terra::rast() |> 
+  terra::project(elev_data |> terra::rast())
+
+elbe_buffer[elbe_buffer == 1] <- 0
+
+park_with_river <- terra::rast(elev_data) |> 
+  # merge with elbe
+  terra::mosaic(elbe_raster, fun = "min") |> 
+  terra::mosaic(elbe_buffer, fun = "min") |> 
+  as.data.frame(xy = TRUE) |> 
+  st_as_sf(coords = c("x", "y"), crs = st_crs(elbe)) |>
+  rename_with(\(x) ifelse(x != "geometry", "value", x)) |> 
+  # classify: elbe 0, otherwise rank
+  mutate(value = case_when(value == 0 ~ -1,
+                           value == 1 ~ 0, 
+                           .default = ntile(value, 3))) |> 
   # add letter
   left_join(chars_map, by = "value")
-
-elbe_raster <- stars::st_rasterize(elbe) |> 
-  as.data.frame(xy = TRUE) |> 
-  drop_na(ID) |>
-  mutate(value_letter = "-") |> 
-  select(-ID) |>
-  st_as_sf(coords = c("x", "y"), crs = st_crs(elbe))
 
 # plot
 ggplot() +
   geom_sf_text(
-    data = elev_df,
-    aes(label = value_letter),
-    size = 2,
-    family = "elite"
-  ) +
-  geom_sf_text(
-    data = elbe_raster,
+    data = park_with_river,
     aes(label = value_letter),
     size = 2,
     family = "elite"
@@ -83,10 +88,11 @@ ggplot() +
     plot.margin = margin(10, 10, 10, 10),
     plot.title = element_text(
       family = "elite",
-      size = 20,
+      size = 40,
+      lineheight = .5,
       colour = "grey10",
       hjust = .8
     )
   )
 
-ggsave("national_park.png")
+ggsave("national_park.png", bg = "white")
