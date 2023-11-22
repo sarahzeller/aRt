@@ -2,6 +2,7 @@ library(tidyverse)
 library(osmdata)
 library(sf)
 library(showtext)
+here("utils.R") |> source()
 
 font_add_google("Special Elite", "elite")
 showtext_auto()
@@ -12,23 +13,14 @@ chars_map <- data.frame(value_letter = c("", "\u2022", "I", "H", "M"),
 
 # load data
 # national park
-extract_polygon <- function(park_name) {
-  opq(bbox = "Europe") |>
-    add_osm_feature(key = "name", value = park_name) |>
-    osmdata_sf() |>
-    # just get the lines
-    pluck("osm_lines") |>
-    st_union() |>
-    st_polygonize() |>
-    st_collection_extract("POLYGON") |>
-    st_as_sf()
-}
-
 saxonian <- extract_polygon("Nationalpark Sächsische Schweiz")
 bohemian <- extract_polygon("Národní park České Švýcarsko")
 
-national_park <- saxonian |>
-  st_union(bohemian)
+national_park <- bohemian |>
+  st_union(saxonian) |> 
+  # resolve boundaries and return to sf class
+  st_union() |> 
+  st_as_sf()
 
 # river
 elbe <- opq(bbox = "Europe") |>
@@ -38,35 +30,33 @@ elbe <- opq(bbox = "Europe") |>
   pluck("osm_multilines") |>
   # select main river
   filter(osm_id == 123822 & role == "main_stream") |> 
-  st_crop(st_buffer(national_park, 10))
+  st_crop(st_buffer(national_park, 200))
 
 # create raster and convert back to sf
-# add elevation to national park
-elev_data <- elevatr::get_elev_raster(locations = national_park,
+# get elevation for national park bounding box
+elev_data <- elevatr::get_elev_raster(locations = st_buffer(national_park, 0),
                                       z = 8,
-                                      clip = "locations")
-# tidy up
+                                      clip = "bbox")
+# get rasterized line data for river and national park borders
 elbe_raster <- elbe |> 
   sf::st_buffer(100) |> 
-  stars::st_rasterize() |>
-  terra::rast() |> 
-  terra::project(elev_data |> terra::rast())
+  make_raster()
 elbe_raster[elbe_raster == 1] <- 0
 
-elbe_buffer <- elbe |> 
-  sf::st_buffer(400) |> 
-  stars::st_rasterize() |>
-  terra::rast() |> 
-  terra::project(elev_data |> terra::rast())
-
+border_raster <- national_park |> 
+  st_cast("MULTILINESTRING") |> 
+  sf::st_buffer(5) |> 
+  make_raster()
+  
 park_with_river <- terra::rast(elev_data) |> 
-  # merge with elbe
+  # merge with river and border
   terra::mosaic(elbe_raster, fun = "min") |> 
-  terra::mosaic(elbe_buffer, fun = "min") |> 
+  terra::mosaic(border_raster, fun = "min") |> 
+  # convert to sf
   as.data.frame(xy = TRUE) |> 
   st_as_sf(coords = c("x", "y"), crs = st_crs(elbe)) |>
   rename_with(\(x) ifelse(x != "geometry", "value", x)) |> 
-  # classify: elbe 0, otherwise rank
+  # classify: elbe 0, border -1, otherwise rank
   mutate(value = case_when(value == 0 ~ 0,
                            value == 1 ~ -1, 
                            .default = ntile(value, 3))) |> 
@@ -88,7 +78,7 @@ ggplot() +
     plot.title = element_text(
       family = "elite",
       size = 40,
-      lineheight = .5,
+      lineheight = .3,
       colour = "grey10",
       hjust = .8
     )
