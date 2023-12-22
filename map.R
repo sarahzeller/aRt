@@ -2,6 +2,7 @@ library(tidyverse)
 library(osmdata)
 library(sf)
 library(showtext)
+library(here)
 here("utils.R") |> source()
 
 font_add_google("Special Elite", "elite")
@@ -13,8 +14,11 @@ chars_map <- data.frame(value_letter = c("", "\u2022", "I", "H", "M"),
 
 # load data
 # national park
-saxonian <- extract_polygon("Nationalpark Sächsische Schweiz")
-bohemian <- extract_polygon("Národní park České Švýcarsko")
+saxonian_data <- load_and_save_osm("Nationalpark Sächsische Schweiz") 
+saxonian <- extract_polygon(saxonian_data)
+
+bohemian_data <- load_and_save_osm("Národní park České Švýcarsko")
+bohemian <- extract_polygon(bohemian_data)
 
 national_park <- bohemian |>
   st_union(saxonian) |> 
@@ -23,14 +27,14 @@ national_park <- bohemian |>
   st_as_sf()
 
 # river
-elbe <- opq(bbox = "Europe") |>
-  add_osm_feature(key = "name", value = "Elbe") |>
-  osmdata_sf() |>
+elbe_data <- load_and_save_osm("Elbe") 
+
+elbe <- elbe_data |> 
   # just get the lines
   pluck("osm_multilines") |>
   # select main river
   filter(osm_id == 123822 & role == "main_stream") |> 
-  st_crop(st_buffer(national_park, 200))
+  st_crop(st_buffer(national_park, 2000))
 
 # create raster and convert back to sf
 # get elevation for national park bounding box
