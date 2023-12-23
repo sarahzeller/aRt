@@ -15,16 +15,18 @@ chars_map <- data.frame(value_letter = c("", "\u2022", "I", "H", "M"),
 # load data
 # national park
 saxonian_data <- load_and_save_osm("Nationalpark Sächsische Schweiz") 
-saxonian <- extract_polygon(saxonian_data)
+saxonian <- saxonian_data |> pluck("osm_multipolygons")
 
 bohemian_data <- load_and_save_osm("Národní park České Švýcarsko")
-bohemian <- extract_polygon(bohemian_data)
+bohemian <- bohemian_data |> pluck("osm_multipolygons")
 
 national_park <- bohemian |>
   st_union(saxonian) |> 
   # resolve boundaries and return to sf class
   st_union() |> 
-  st_as_sf()
+  # cast to simlified multilinestring
+  st_buffer(1) |>
+  st_cast("MULTILINESTRING") 
 
 # river
 elbe_data <- load_and_save_osm("Elbe") 
@@ -38,32 +40,36 @@ elbe <- elbe_data |>
 
 # create raster and convert back to sf
 # get elevation for national park bounding box
-elev_data <- elevatr::get_elev_raster(locations = st_buffer(national_park, 0),
+elev_data <- elevatr::get_elev_raster(locations = national_park,
                                       z = 8,
-                                      clip = "bbox")
+                                      clip = "bbox") |> 
+  terra::rast()
+
 # get rasterized line data for river and national park borders
 elbe_raster <- elbe |> 
-  sf::st_buffer(100) |> 
-  make_raster()
-elbe_raster[elbe_raster == 1] <- 0
+  sf::st_simplify(dTolerance = 400) |>
+  terra::rasterize(elev_data) |> 
+  tidyterra::mutate(layer = ifelse(layer == 1, 0, layer))
 
 border_raster <- national_park |> 
-  st_cast("MULTILINESTRING") |> 
-  sf::st_buffer(5) |> 
-  make_raster()
+  sf::st_simplify(dTolerance = 400) |>
+  terra::vect() |> 
+  terra::rasterize(elev_data)
   
-park_with_river <- terra::rast(elev_data) |> 
+park_with_river_raster <- elev_data_terra |> 
   # merge with river and border
   terra::mosaic(elbe_raster, fun = "min") |> 
   terra::mosaic(border_raster, fun = "min") |> 
-  # convert to sf
-  as.data.frame(xy = TRUE) |> 
-  st_as_sf(coords = c("x", "y"), crs = st_crs(elbe)) |>
-  rename_with(\(x) ifelse(x != "geometry", "value", x)) |> 
-  # classify: elbe 0, border -1, otherwise rank
-  mutate(value = case_when(value == 0 ~ 0,
+  # classify values
+  tidyterra::rename_with(\(x) ifelse(x != "geometry", "value", x)) |> 
+  tidyterra::mutate(value = case_when(value == 0 ~ 0,
                            value == 1 ~ -1, 
-                           .default = ntile(value, 3))) |> 
+                           .default = ntile(value, 3))) 
+
+park_with_river <- park_with_river_raster |> 
+  # convert to sf
+  as.data.frame(xy = TRUE) |>
+  st_as_sf(coords = c("x", "y"), crs = st_crs(elbe)) |>
   # add letter
   left_join(chars_map, by = "value")
 

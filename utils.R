@@ -15,16 +15,6 @@ load_and_save_osm <- function(value_name) {
   }
 }
 
-extract_polygon <- function(osm_data) {
-  osm_data |>
-    # just get the lines
-    pluck("osm_lines") |>
-    st_union() |>
-    st_polygonize() |>
-    st_collection_extract("POLYGON") |>
-    st_as_sf()
-}
-
 make_raster <- function(polygon,
                         template = elev_data) {
   polygon |>
