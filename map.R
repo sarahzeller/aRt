@@ -40,7 +40,7 @@ elbe <- elbe_data |>
 
 # create raster and convert back to sf
 # get elevation for national park bounding box
-elev_data <- elevatr::get_elev_raster(locations = national_park,
+elev_data <- elevatr::get_elev_raster(locations = st_as_sf(national_park),
                                       z = 8,
                                       clip = "bbox") |> 
   terra::rast()
@@ -56,7 +56,7 @@ border_raster <- national_park |>
   terra::vect() |> 
   terra::rasterize(elev_data)
   
-park_with_river_raster <- elev_data_terra |> 
+park_with_river_raster <- elev_data |> 
   # merge with river and border
   terra::mosaic(elbe_raster, fun = "min") |> 
   terra::mosaic(border_raster, fun = "min") |> 
@@ -87,8 +87,9 @@ ggplot() +
     plot.margin = margin(10, 10, 10, 10),
     plot.title = element_text(
       family = "elite",
-      size = 40,
-      hjust  = .5
+      size = 100,
+      margin = margin(t = 30),
+      hjust = .08
     )
   )
 
