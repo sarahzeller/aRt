@@ -14,11 +14,11 @@ chars_map <- data.frame(value_letter = c("", "\u2022", "I", "H", "M"),
 
 # load data
 # national park
-saxonian_data <- load_and_save_osm("Nationalpark Sächsische Schweiz") 
-saxonian <- saxonian_data |> pluck("osm_multipolygons")
+saxonian <- load_and_save_osm("Nationalpark Sächsische Schweiz") |> 
+  pluck("osm_multipolygons")
 
-bohemian_data <- load_and_save_osm("Národní park České Švýcarsko")
-bohemian <- bohemian_data |> pluck("osm_multipolygons")
+bohemian <- load_and_save_osm("Národní park České Švýcarsko") |> 
+  pluck("osm_multipolygons")
 
 national_park <- bohemian |>
   st_union(saxonian) |> 
@@ -29,9 +29,7 @@ national_park <- bohemian |>
   st_cast("MULTILINESTRING") 
 
 # river
-elbe_data <- load_and_save_osm("Elbe") 
-
-elbe <- elbe_data |> 
+elbe_data <- load_and_save_osm("Elbe") |> 
   # just get the lines
   pluck("osm_multilines") |>
   # select main river
@@ -49,6 +47,7 @@ elev_data <- elevatr::get_elev_raster(locations = st_as_sf(national_park),
 elbe_raster <- elbe |> 
   sf::st_simplify(dTolerance = 400) |>
   terra::rasterize(elev_data) |> 
+  # set value to 0
   tidyterra::mutate(layer = ifelse(layer == 1, 0, layer))
 
 border_raster <- national_park |> 
