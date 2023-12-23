@@ -78,20 +78,21 @@ ggplot() +
   geom_sf_text(
     data = park_with_river,
     aes(label = value_letter),
-    size = 2,
+    size = 8,
     family = "elite"
   ) +
-  labs(title = "Elbsandstein-\nGebirge") +
+  labs(title = "Elbsandsteingebirge") +
   theme_void() +
   theme(
     plot.margin = margin(10, 10, 10, 10),
     plot.title = element_text(
       family = "elite",
       size = 40,
-      lineheight = .3,
-      colour = "grey10",
-      hjust = .8
+      hjust  = .5
     )
   )
 
-ggsave("national_park.png", bg = "white")
+ggsave("national_park.png", bg = "white",
+       width = 297,
+       height = 210,
+       units = "mm")
