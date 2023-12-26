@@ -94,6 +94,8 @@ ggplot() +
                                               lineheight = .5,
                                               size = 15,
                                               family = "source_sans",
-                                              margin = margin(b = 10, l = 20)))
+                                              margin = margin(b = 10, l = 20)),
+        plot.margin = margin(0,0,0,0))
 
-here("christmas_tree/christmas_tree.png") |> ggsave(bg = "white")
+here("christmas_tree/christmas_tree.png") |> 
+  ggsave(width = 2, height = 2.67, bg = "white")
