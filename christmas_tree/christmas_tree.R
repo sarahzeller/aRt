@@ -95,7 +95,8 @@ ggplot() +
                                               size = 15,
                                               family = "source_sans",
                                               margin = margin(b = 10, l = 20)),
-        plot.margin = margin(0,0,0,0))
+        plot.margin = margin(0,0,0,0),
+        panel.border = element_rect(colour = "white", fill = NA))
 
 here("christmas_tree/christmas_tree.png") |> 
   ggsave(width = 2, height = 2.67, bg = "white")
