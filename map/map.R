@@ -3,7 +3,7 @@ library(osmdata)
 library(sf)
 library(showtext)
 library(here)
-here("utils.R") |> source()
+here("map/utils.R") |> source()
 
 font_add_google("Special Elite", "elite")
 showtext_auto()
@@ -29,7 +29,7 @@ national_park <- bohemian |>
   st_cast("MULTILINESTRING") 
 
 # river
-elbe_data <- load_and_save_osm("Elbe") |> 
+elbe <- load_and_save_osm("Elbe") |> 
   # just get the lines
   pluck("osm_multilines") |>
   # select main river
@@ -92,7 +92,7 @@ ggplot() +
     )
   )
 
-ggsave("national_park.png", bg = "white",
+ggsave("map/national_park.png", bg = "white",
        width = 297,
        height = 210,
        units = "mm")
