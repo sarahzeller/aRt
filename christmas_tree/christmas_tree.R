@@ -96,4 +96,4 @@ ggplot() +
                                               family = "source_sans",
                                               margin = margin(b = 10, l = 20)))
 
-here("christmas_tree/christmas_tree.png") |> ggsave()
+here("christmas_tree/christmas_tree.png") |> ggsave(bg = "white")
